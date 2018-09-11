@@ -23,6 +23,8 @@ class TwoWayDict(dict):
 class TwoWayLinkSet:
     """
         Two way links of object with params
+
+        link: dict of
     """
     def __init__(self):
         self.__params = {}
@@ -30,7 +32,7 @@ class TwoWayLinkSet:
         self.__counter = 0
 
         self.__links_updated = False
-        self.__groups_cache = None
+        self.__groups_cache = []
 
     def is_linked(self, key1, key2):
         return key1 in self.__links and key2 in self.__links[key1]
@@ -58,7 +60,13 @@ class TwoWayLinkSet:
         else:
             self.__params[link_id] = args
 
-    def get(self, key1, key2, default=None):
+    def get_linked_with_params(self, key):
+        return [(linked_key, self.__params.get(link_id, None))
+                for linked_key, link_id
+                in self.__links.get(key, []).items()]
+
+
+    def get_link_params(self, key1, key2, default=None):
         if self.is_linked(key1, key2):
             return self.__params[self.__links[key1][key2]]
         else:
@@ -92,7 +100,7 @@ class TwoWayLinkSet:
                 return False
         return True
 
-    def get_groups(self):
+    def build_groups(self):
         """ get groups of linked objects """
         if not self.__links_updated:
             return self.__groups_cache
@@ -155,12 +163,18 @@ class TwoWayLinkSetTest(unittest.TestCase):
         self.o.set(1004, 1005)
 
     def test_groups(self):
-        groups = self.o.get_groups()
+        groups = self.o.build_groups()
         self.assertIn({1, 2, 3, 100}, groups)
         self.assertIn({4, 5, 6}, groups)
         self.assertIn({7, 8}, groups)
         self.assertIn({9, 10}, groups)
         self.assertIn({1000, 1001, 1002, 1003, 1004, 1005}, groups)
+
+    def test_get_linked_with_params(self):
+        self.assertIn((5, ('fotin', 'fiftin')), self.o.get_linked_with_params(4))
+        self.assertIn((6, ('fotin', 'sixtin')), self.o.get_linked_with_params(4))
+        self.assertEqual([(1001, ())], self.o.get_linked_with_params(1000))
+        self.assertEqual([(1004, ())], self.o.get_linked_with_params(1005))
 
     def test_count(self):
         self.assertEqual(self.o.count(2), 3)
@@ -168,23 +182,23 @@ class TwoWayLinkSetTest(unittest.TestCase):
         self.assertEqual(self.o.count(123), 0)
 
     def test_correct(self):
-        self.assertEqual(self.o.get(1, 2), ('one', 'two'))
-        self.assertEqual(self.o.get(2, 1), ('one', 'two'))
-        self.assertEqual(self.o.get(2, 2), ('two', 'two'))
-        self.assertEqual(self.o.get(3, 1), ('one', 'three'))
-        self.assertEqual(self.o.get(1, 3), ('one', 'three'))
-        self.assertIsNone(self.o.get(1, 4))
-        self.assertIsNone(self.o.get(1, 1))
+        self.assertEqual(self.o.get_link_params(1, 2), ('one', 'two'))
+        self.assertEqual(self.o.get_link_params(2, 1), ('one', 'two'))
+        self.assertEqual(self.o.get_link_params(2, 2), ('two', 'two'))
+        self.assertEqual(self.o.get_link_params(3, 1), ('one', 'three'))
+        self.assertEqual(self.o.get_link_params(1, 3), ('one', 'three'))
+        self.assertIsNone(self.o.get_link_params(1, 4))
+        self.assertIsNone(self.o.get_link_params(1, 1))
 
     def test_add(self):
         self.o.set(5, 6, 'hello')
-        self.assertEqual(self.o.get(6, 5), 'hello')
+        self.assertEqual(self.o.get_link_params(6, 5), 'hello')
         self.o.set(5, 6, 'hello world')
-        self.assertNotEqual(self.o.get(6, 5), 'hello')
-        self.assertEqual(self.o.get(6, 5), 'hello world')
+        self.assertNotEqual(self.o.get_link_params(6, 5), 'hello')
+        self.assertEqual(self.o.get_link_params(6, 5), 'hello world')
         self.o.remove(6, 5)
         self.assertFalse(self.o.is_linked(5, 6))
-        self.assertIsNone(self.o.get(5, 6))
+        self.assertIsNone(self.o.get_link_params(5, 6))
 
     def test_linked(self):
         self.assertTrue(self.o.is_linked(1, 2))

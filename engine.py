@@ -2,7 +2,6 @@ import pygame as pg
 
 
 class Engine:
-
     def __init__(self, width, height, cell_size_px=2, fps=50):
         self.width = width
         self.height = height
@@ -19,11 +18,10 @@ class Engine:
         self.main_surface = pg.Surface(size_px)
         self.cell_surface = pg.Surface((cell_size_px, cell_size_px))
 
-
-    def loop(self, move_fnc=None, cells_iter=None):
+    def loop(self, move_fnc=None, cells_iter=None, max_turns=None):
         loop_no = 0
         # Start world
-
+        current_turn = 0
         clock = pg.time.Clock()
         while True:
             clock.tick(self.fps)
@@ -38,9 +36,13 @@ class Engine:
             # Make move
             if move_fnc is not None:
                 move_fnc()
+            current_turn += 1
 
             # Draw world
             self.draw_world(cells_iter)
+
+            if max_turns is not None and current_turn >= max_turns:
+                return
 
     def draw_world(self, cells_iter):
         self.main_surface.fill((0, 0, 0))

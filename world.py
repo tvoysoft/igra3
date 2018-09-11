@@ -1,4 +1,5 @@
 from common import TwoWayLinkSet
+import colorsys
 
 class Direction:
     UP_LEFT = LEFT_UP = 1
@@ -23,18 +24,18 @@ class Direction:
     _ALL_RIGHT = (RIGHT_UP, RIGHT, RIGHT_DOWN)
 
     @classmethod
-    def apply(cls, point, direction):
+    def apply(cls, position, direction):
         """
-        :param point:
+        :param position:
         :param direction:
             1 2 3
             4 0 5
             6 7 8
         :return: point
         """
-        if point is None:
+        if position is None:
             return None
-        x, y = point
+        x, y = position
         if direction in Direction._ALL_UP:
             y += 1
         elif direction in Direction._ALL_DOWN:
@@ -45,6 +46,17 @@ class Direction:
             x += 1
         return x, y
 
+def change_brigness(rgb, brightness):  # TODO: very slow, make faster
+    '''
+
+    :param rgb: tuple 0..255
+    :param brightness: 0..100
+    :return: tuple 0..255
+    '''
+    rgb01 = rgb[0] / 255, rgb[1] / 255, rgb[2] / 255
+    hsv = colorsys.rgb_to_hsv(*rgb01)
+    new_rgb = colorsys.hsv_to_rgb(hsv[0], hsv[1], 0.01 * brightness)
+    return new_rgb[0] * 255, new_rgb[1] * 255, new_rgb[2] * 255
 
 class Layer:
     def __init__(self, world, width, height, concatenated):
@@ -87,6 +99,12 @@ class PhysicalLayer(Layer):
     def has_cell(self, cell):
         return cell is not None and cell in self.__cell_to_point
 
+    def get_cell(self, position, direction=None):
+        if direction is None:
+            return self.__point_to_cell.get(position, None)
+        else:
+            return self.__point_to_cell.get(self.norm(Direction.apply(position, direction)), None)
+
     def is_point_occupied(self, point):
         return self.norm(point) in self.__point_to_cell
 
@@ -100,10 +118,15 @@ class PhysicalLayer(Layer):
             self.world.add_cell_callback(cell, self)
             return True
 
-    def position(self, cell):
-        return self.__cell_to_point.get(cell, None)
+    def position(self, cell, direction=None):
+        if direction is None:
+            return self.__cell_to_point.get(cell, None)
+        else:
+            return self.norm(Direction.apply(self.__cell_to_point.get(cell, None), direction))
 
     def move(self, cell, point):
+        if point is None or cell is None:
+            return False
         if not self.has_cell(cell):
             return False
         to_point = self.norm(point)
@@ -119,12 +142,30 @@ class PhysicalLayer(Layer):
         return True
 
     def move_in_direction(self, cell, direction):
-        cur_point = self.__cell_to_point.get(cell, None)
-        to_point = self.direction_to_point(cur_point, direction)
-        if to_point is None:
-            return False
+        return self.move(cell, self.position(cell, direction))
+
+    def move_multiple_in_direction(self, cells: list, direction):
+        overlapped = []
+        for cell in cells:
+            ov = self.get_cell(self.position(cell, direction))
+            if ov is not None:
+                overlapped.append(ov)
+        if len(overlapped) == 0:
+            can_move = True
         else:
-            return self.move(cell, to_point)
+            can_move = set(overlapped).issubset(set(cells))
+        if can_move:
+            # hmmm....
+            current_points = [(cell, self.position(cell)) for cell in cells]
+            for cell, position in current_points:
+                del self.__point_to_cell[position]
+            for cell, position in current_points:
+                new_position = self.norm(Direction.apply(position, direction))
+                self.__cell_to_point[cell] = new_position
+                self.__point_to_cell[new_position] = cell
+            return True
+        else:
+            return False
 
     def remove(self, cell):
         if self.has_cell(cell):
@@ -143,21 +184,35 @@ class PhysicalAgent:
         self.__links = TwoWayLinkSet()
         self.move_impulses = []
 
+    def get_all_cell_groups(self):
+        return self.__links.build_groups()
+
+    def get_cell_group(self, cell):
+        groups = self.__links.build_groups()
+        for group in groups:
+            if cell in group:
+                return group
+        return [cell]
+
     def add_cell(self, cell, point):
-        add_to_layer = self.layer.add(cell, point)
-        print('Add to layer: ', add_to_layer)
-        return add_to_layer
+        return self.layer.add(cell, point)
 
     def link_cell(self, cell1, cell2):
         self.__links.set(cell1, cell2)
 
-    def add_linked_cell(self, cell1, cell2, direction):
-        point1 = self.layer.position(cell1)
+    def add_cell_to_direction(self,  cell_to_add, base_cell, direction):
+        point1 = self.layer.position(base_cell)
         point2 = self.layer.direction_to_point(point1, direction)
         if point2 is None:
             return False
-        if self.add_cell(cell2, point2):
-            self.link_cell(cell1, cell2)
+        if self.add_cell(cell_to_add, point2):
+            return True
+        else:
+            return False
+
+    def add_linked_cell(self, cell_to_add, base_cell, direction):
+        if self.add_cell_to_direction(cell_to_add, base_cell, direction):
+            self.link_cell(base_cell, cell_to_add)
             return True
         else:
             return False
@@ -165,6 +220,8 @@ class PhysicalAgent:
     def move_simple(self, cell, direction):
         self.layer.move_in_direction(cell, direction)
 
+    def move_linked(self, cell, direction):
+        self.layer.move_multiple_in_direction(self.get_cell_group(cell), direction)
 
     def _new_cycle(self):
         self.move_impulses.clear()
@@ -196,7 +253,7 @@ class World:
         self.layer_cells[layer].append(cell)
 
     def add_physical_cell(self, cell, point):
-        self.physical_layer.agent.add_cell(cell, point)
+        return self.physical_layer.agent.add_cell(cell, point)
 
 
     def next_move(self):
@@ -223,4 +280,4 @@ class World:
         """
         for cell, point in self.physical_layer.cell_pos_iter:
             # convert Y-Axis
-            yield self.height - point[0], point[1], cell.color
+            yield point[0], self.height - point[1], cell.color
