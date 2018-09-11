@@ -78,7 +78,7 @@ class TwoWayLinkSet:
         else:
             return len(self.__links[key])
 
-    def remove(self, key1, key2):
+    def remove(self, key1, key2, clear_if_empty=False):
         if self.is_linked(key1, key2):
             self.__links_updated = True
             link_id = self.__links[key1][key2]
@@ -86,6 +86,11 @@ class TwoWayLinkSet:
             del self.__links[key2][key1]
             params = self.__params[link_id]
             del self.__params[link_id]
+            if clear_if_empty:
+                if len(self.__links[key1]) == 0:
+                    del self.__links[key1]
+                if len(self.__links[key2]) == 0:
+                    del self.__links[key2]
             return params
         else:
             return False

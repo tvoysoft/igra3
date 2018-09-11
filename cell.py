@@ -41,7 +41,7 @@ class SimplePhysicalCell(PhysicalCell):
 
 
 class SimplePhysicalCell2(PhysicalCell):
-    MAX_SINGLE_CLONES = 2
+    MAX_SINGLE_CLONES = 3
     MAX_TOTAL_CLONES = 500
     TOTAL_CLONES_COUNT = 0
 
@@ -90,12 +90,24 @@ class SimplePhysicalCell2(PhysicalCell):
         if next_direction != 9:
             self.layer_agent.move_linked(self, next_direction)  #!!!!!!!!!!!!!!!!!!!!!!!!!!!
         elif self.__clones_count < SimplePhysicalCell2.MAX_SINGLE_CLONES:
-            if self.__clones_count % 2 == 0:
+            if self.__clones_count == 0:
                 clone = self.clone(worldpack.Direction.UP, True)
-                if clone is not None:
-                    clone.color = (255, 0, 0)
+                # if clone is not None:
+                #     clone.color = (255, 0, 0)
+            elif self.__clones_count == 1:
+                clone = self.clone(worldpack.Direction.DOWN, False)
+                if clone is None:
+                    self.__clones_count += 1
+
             else:
-                self.clone(worldpack.Direction.DOWN, False)
+                self.__clones_count = SimplePhysicalCell2.MAX_SINGLE_CLONES
+                my_group = self.layer_agent.get_cell_group(self)
+                for cell in my_group:
+                    if cell != self:
+                        self.layer_agent.unlink(self, cell)
+                        # print('%s unlinked %s' % (self, cell))
+                        self.color = (255, 0, 0)
+
 
 
 

@@ -194,6 +194,9 @@ class PhysicalAgent:
                 return group
         return [cell]
 
+    def unlink(self, cell1, cell2):
+        return self.__links.remove(cell1, cell2, True)
+
     def add_cell(self, cell, point):
         return self.layer.add(cell, point)
 
@@ -281,3 +284,21 @@ class World:
         for cell, point in self.physical_layer.cell_pos_iter:
             # convert Y-Axis
             yield point[0], self.height - point[1], cell.color
+
+    def groups_iter(self):
+        """
+            Just to test
+        """
+        groups = self.physical_layer.agent.get_all_cell_groups()
+        cnt = len(groups)
+        for cell, point in self.physical_layer.cell_pos_iter:
+            cell_group_no = -1
+            for num, group in enumerate(groups):
+                if cell in group:
+                    cell_group_no = num
+                    break
+            if cnt == 0 or cell_group_no < 0:
+                color = cell.color
+            else:
+                color = (64, 64, 127 + 128 * cell_group_no // cnt)
+            yield point[0], self.height - point[1], color
