@@ -1,6 +1,8 @@
 from common import TwoWayLinkSet
 import colorsys
 
+Point = tuple
+
 class Direction:
     UP_LEFT = LEFT_UP = 1
     UP = 2
@@ -24,7 +26,7 @@ class Direction:
     _ALL_RIGHT = (RIGHT_UP, RIGHT, RIGHT_DOWN)
 
     @classmethod
-    def apply(cls, position, direction):
+    def apply(cls, position: Point, direction):
         """
         :param position:
         :param direction:
@@ -78,8 +80,8 @@ class Layer:
         else:
             return None
 
-    def direction_to_point(self, current_point, direction):
-        return self.norm(Direction.apply(current_point, direction))
+    def apply_direction(self, point, direction):
+        return self.norm(Direction.apply(point, direction))
 
 
 class PhysicalLayer(Layer):
@@ -129,12 +131,13 @@ class PhysicalLayer(Layer):
             return False
         if not self.has_cell(cell):
             return False
+
         to_point = self.norm(point)
         if to_point is None:
             return self.remove(cell)
-
         if to_point in self.__point_to_cell:
             return False
+
         cur_point = self.__cell_to_point[cell]
         self.__cell_to_point[cell] = to_point
         self.__point_to_cell[to_point] = cell
@@ -144,7 +147,7 @@ class PhysicalLayer(Layer):
     def move_in_direction(self, cell, direction):
         return self.move(cell, self.position(cell, direction))
 
-    def move_multiple_in_direction(self, cells: list, direction):
+    def move_multiple_in_direction(self, cells, direction):
         overlapped = []
         for cell in cells:
             ov = self.get_cell(self.position(cell, direction))
@@ -184,47 +187,51 @@ class PhysicalAgent:
         self.__links = TwoWayLinkSet()
         self.move_impulses = []
 
-    def get_all_cell_groups(self):
-        return self.__links.build_groups()
+    def add(self, cell, position: Point, direction=Direction.NO):
+        return self.layer.add(cell, Direction.apply(position, direction))
 
-    def get_cell_group(self, cell):
-        groups = self.__links.build_groups()
-        for group in groups:
-            if cell in group:
-                return group
-        return [cell]
+    def add_relative(self, cell, base_cell, direction):
+        return self.add(cell, self.layer.position(base_cell), direction)
+
+    def add_linked(self, cell_to_add, base_cell, direction):
+        if self.add(cell_to_add, self.layer.position(base_cell), direction):
+            self.link(base_cell, cell_to_add)
+            return True
+        else:
+            return False
+
+    def link(self, cell1, cell2, **kwargs):
+        self.__links.set(cell1, cell2, kwargs)
 
     def unlink(self, cell1, cell2):
         return self.__links.remove(cell1, cell2, True)
 
-    def add_cell(self, cell, point):
-        return self.layer.add(cell, point)
+    @property
+    def all_groups(self) -> tuple:
+        '''
 
-    def link_cell(self, cell1, cell2):
-        self.__links.set(cell1, cell2)
+        :return: groups of cells
+        '''
+        return self.__links.get_groups()
 
-    def add_cell_to_direction(self,  cell_to_add, base_cell, direction):
-        point1 = self.layer.position(base_cell)
-        point2 = self.layer.direction_to_point(point1, direction)
-        if point2 is None:
-            return False
-        if self.add_cell(cell_to_add, point2):
-            return True
+    def get_group(self, cell) -> set:
+        '''
+        :return: cell's group (list with this cell and all linked)
+        '''
+        group = self.__links.get_single_group(cell)
+        if group is not None:
+            return group
         else:
-            return False
+            return {cell}
 
-    def add_linked_cell(self, cell_to_add, base_cell, direction):
-        if self.add_cell_to_direction(cell_to_add, base_cell, direction):
-            self.link_cell(base_cell, cell_to_add)
-            return True
-        else:
-            return False
+    def get_linked(self, cell) ->list:
+        pass
 
     def move_simple(self, cell, direction):
         self.layer.move_in_direction(cell, direction)
 
     def move_linked(self, cell, direction):
-        self.layer.move_multiple_in_direction(self.get_cell_group(cell), direction)
+        self.layer.move_multiple_in_direction(self.get_group(cell), direction)
 
     def _new_cycle(self):
         self.move_impulses.clear()
@@ -256,7 +263,7 @@ class World:
         self.layer_cells[layer].append(cell)
 
     def add_physical_cell(self, cell, point):
-        return self.physical_layer.agent.add_cell(cell, point)
+        return self.physical_layer.agent.add(cell, point)
 
 
     def next_move(self):
@@ -289,7 +296,7 @@ class World:
         """
             Just to test
         """
-        groups = self.physical_layer.agent.get_all_cell_groups()
+        groups = self.physical_layer.agent.all_groups
         cnt = len(groups)
         for cell, point in self.physical_layer.cell_pos_iter:
             cell_group_no = -1

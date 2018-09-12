@@ -2,9 +2,17 @@ from unittest.test.test_result import __init__
 import world as worldpack
 
 class Cell:
+    __counter = 0
+
     def __init__(self, layer_agent, name=None):
+        Cell.__counter += 1
+        self.__id = Cell.__counter
         self.name = name
         self.layer_agent = layer_agent  # type: worldpack.PhysicalAgent
+
+    @property
+    def id(self):
+        return self.__id
 
     def __str__(self):
         if self.name is not None:
@@ -21,6 +29,8 @@ class PhysicalCell(Cell):
         super().__init__(layer_agent, name=name)
         self.weight = 1
 
+    def get_my_group(self):
+        return self.layer_agent.get_group(self)
 
 class SimplePhysicalCell(PhysicalCell):
     def __init__(self, layer, color: tuple, directions: list, name=None):
@@ -66,16 +76,21 @@ class SimplePhysicalCell2(PhysicalCell):
         return self.directions[self.cur_dir_no]
 
     def clone(self, direction, is_linked):
+        '''
+
+        :param direction:
+        :param is_linked:
+        :return:
+        :rtype: SimplePhysicalCell2
+        '''
         if SimplePhysicalCell2.TOTAL_CLONES_COUNT >= SimplePhysicalCell2.MAX_TOTAL_CLONES:
             return None
-        new_color = worldpack.change_brigness(self.color, 40 + 60 *
-                                              (SimplePhysicalCell2.TOTAL_CLONES_COUNT / SimplePhysicalCell2.MAX_TOTAL_CLONES))
         new_name = self.name + '_' + str(self.__clones_count)
-        c = self.__class__(self.layer_agent, new_color, self.directions, name=new_name)
+        c = self.__class__(self.layer_agent, self.color, self.directions, name=new_name)
         if is_linked:
-            added = self.layer_agent.add_linked_cell(c, self, direction)
+            added = self.layer_agent.add_linked(c, self, direction)
         else:
-            added = self.layer_agent.add_cell_to_direction(c, self, direction)
+            added = self.layer_agent.add_relative(c, self, direction)
         if added:
             self.__clones_count += 1
             SimplePhysicalCell2.TOTAL_CLONES_COUNT += 1
@@ -96,13 +111,15 @@ class SimplePhysicalCell2(PhysicalCell):
                 #     clone.color = (255, 0, 0)
             elif self.__clones_count == 1:
                 clone = self.clone(worldpack.Direction.DOWN, False)
-                if clone is None:
-                    self.__clones_count += 1
+                if clone is not None:
+                    # make clone look brighter
+                    clone.color = worldpack.change_brigness(self.color, 40 +
+                                                            60
+                                                            * SimplePhysicalCell2.TOTAL_CLONES_COUNT
+                                                            / SimplePhysicalCell2.MAX_TOTAL_CLONES)
 
             else:
-                self.__clones_count = SimplePhysicalCell2.MAX_SINGLE_CLONES
-                my_group = self.layer_agent.get_cell_group(self)
-                for cell in my_group:
+                for cell in self.get_my_group():
                     if cell != self:
                         self.layer_agent.unlink(self, cell)
                         # print('%s unlinked %s' % (self, cell))

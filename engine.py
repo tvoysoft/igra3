@@ -19,9 +19,8 @@ class Engine:
         self.cell_surface = pg.Surface((cell_size_px, cell_size_px))
 
     def loop(self, move_fnc=None, cells_iter=None, max_turns=None):
-        loop_no = 0
         # Start world
-        current_turn = 0
+        loop_no = 0
         clock = pg.time.Clock()
         while True:
             clock.tick(self.fps)
@@ -36,12 +35,14 @@ class Engine:
             # Make move
             if move_fnc is not None:
                 move_fnc()
-            current_turn += 1
+            loop_no += 1
 
             # Draw world
             self.draw_world(cells_iter)
 
-            if max_turns is not None and current_turn >= max_turns:
+            pg.display.set_caption('Turn: %s' % (loop_no, ))
+
+            if max_turns is not None and loop_no >= max_turns:
                 return
 
     def draw_world(self, cells_iter):

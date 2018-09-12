@@ -32,21 +32,8 @@ class TwoWayLinkSet:
         self.__counter = 0
 
         self.__links_updated = False
-        self.__groups_cache = []
-
-    def is_linked(self, key1, key2):
-        return key1 in self.__links and key2 in self.__links[key1]
-
-    def __new_link(self, key1, key2):
-        self.__links_updated = True
-        self.__counter += 1
-        if key1 not in self.__links:
-            self.__links[key1] = {}
-        if key2 not in self.__links:
-            self.__links[key2] = {}
-        self.__links[key1][key2] = self.__counter
-        self.__links[key2][key1] = self.__counter
-        return self.__counter
+        self.__groups_cache = tuple()
+        self.__groups_cache_2 = dict()
 
     def set(self, key1, key2, *args):
         self.__links_updated = True
@@ -60,23 +47,16 @@ class TwoWayLinkSet:
         else:
             self.__params[link_id] = args
 
-    def get_linked_with_params(self, key):
-        return [(linked_key, self.__params.get(link_id, None))
-                for linked_key, link_id
-                in self.__links.get(key, []).items()]
-
-
-    def get_link_params(self, key1, key2, default=None):
-        if self.is_linked(key1, key2):
-            return self.__params[self.__links[key1][key2]]
-        else:
-            return default
-
-    def count(self, key):
-        if key not in self.__links:
-            return 0
-        else:
-            return len(self.__links[key])
+    def __new_link(self, key1, key2):
+        self.__links_updated = True
+        self.__counter += 1
+        if key1 not in self.__links:
+            self.__links[key1] = {}
+        if key2 not in self.__links:
+            self.__links[key2] = {}
+        self.__links[key1][key2] = self.__counter
+        self.__links[key2][key1] = self.__counter
+        return self.__counter
 
     def remove(self, key1, key2, clear_if_empty=False):
         if self.is_linked(key1, key2):
@@ -95,29 +75,45 @@ class TwoWayLinkSet:
         else:
             return False
 
-    @staticmethod
-    def __check_link(link_param, link_filter):
-        if len(link_filter) > len(link_param):
-            return False
+    def is_linked(self, key1, key2):
+        return key1 in self.__links and key2 in self.__links[key1]
 
-        for j, v in enumerate(link_filter):
-            if link_param[j] != v:
-                return False
-        return True
+    def count(self, key):
+        if key not in self.__links:
+            return 0
+        else:
+            return len(self.__links[key])
 
-    def build_groups(self):
-        """ get groups of linked objects """
+    def get_link_params(self, key1, key2, default=None):
+        if self.is_linked(key1, key2):
+            return self.__params[self.__links[key1][key2]]
+        else:
+            return default
+
+    def get_linked_with_params(self, key):
+        return [(linked_key, self.__params.get(link_id, None))
+                for linked_key, link_id
+                in self.__links.get(key, []).items()]
+
+    def get_single_group(self, key) -> set:
+        if self.__links_updated:
+            self.get_groups()
+        return self.__groups_cache_2.get(key, None)
+
+    def get_groups(self) -> tuple:
+        '''
+        :return: list of keys
+        '''
         if not self.__links_updated:
             return self.__groups_cache
+        self.__groups_cache = tuple()
+        self.__groups_cache_2 = dict()
 
         if self.__links is None or len(self.__links) == 0:
-            self.__groups_cache = []
             self.__links_updated = False
             return self.__groups_cache
 
-
         groups = []
-
         passed = []
 
         def __check_link(key):
@@ -134,6 +130,7 @@ class TwoWayLinkSet:
                 group = set()
                 groups.append(group)
             group.add(key)
+            self.__groups_cache_2[key] = group
             for linked_key in dict(self.__links[key]).keys():
                 group.add(linked_key)
                 __check_link(linked_key)
@@ -141,7 +138,7 @@ class TwoWayLinkSet:
         for k in self.__links:
             __check_link(k)
 
-        self.__groups_cache = groups
+        self.__groups_cache = tuple(groups)
         self.__links_updated = False
         return self.__groups_cache
 
@@ -168,7 +165,7 @@ class TwoWayLinkSetTest(unittest.TestCase):
         self.o.set(1004, 1005)
 
     def test_groups(self):
-        groups = self.o.build_groups()
+        groups = self.o.get_groups()
         self.assertIn({1, 2, 3, 100}, groups)
         self.assertIn({4, 5, 6}, groups)
         self.assertIn({7, 8}, groups)
