@@ -1,6 +1,7 @@
 from unittest.test.test_result import __init__
 import world as worldpack
 
+
 class Cell:
     __counter = 0
 
@@ -9,6 +10,7 @@ class Cell:
         self.__id = Cell.__counter
         self.name = name
         self.layer_agent = layer_agent  # type: worldpack.PhysicalAgent
+        self.ag = layer_agent
 
     @property
     def id(self):
@@ -24,6 +26,9 @@ class Cell:
         pass
 
 
+    def destroy(self):
+        self.layer_agent.kill(self)
+
 class PhysicalCell(Cell):
     def __init__(self, layer_agent, name=None):
         super().__init__(layer_agent, name=name)
@@ -31,6 +36,7 @@ class PhysicalCell(Cell):
 
     def get_my_group(self):
         return self.layer_agent.get_group(self)
+
 
 class SimplePhysicalCell(PhysicalCell):
     def __init__(self, layer, color: tuple, directions: list, name=None):
@@ -103,7 +109,7 @@ class SimplePhysicalCell2(PhysicalCell):
 
         next_direction = self.get_next_direction()
         if next_direction != 9:
-            self.layer_agent.move_linked(self, next_direction)  #!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            self.layer_agent.move_linked(self, next_direction)  # !!!!!!!!!!!!!!!!!!!!!!!!!!!
         elif self.__clones_count < SimplePhysicalCell2.MAX_SINGLE_CLONES:
             if self.__clones_count == 0:
                 clone = self.clone(worldpack.Direction.UP, True)
@@ -124,7 +130,3 @@ class SimplePhysicalCell2(PhysicalCell):
                         self.layer_agent.unlink(self, cell)
                         # print('%s unlinked %s' % (self, cell))
                         self.color = (255, 0, 0)
-
-
-
-

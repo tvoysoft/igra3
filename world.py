@@ -4,6 +4,7 @@ import colorsys
 Point = tuple
 
 class Direction:
+    MAX = 8
     UP_LEFT = LEFT_UP = 1
     UP = 2
     UP_RIGHT = RIGHT_UP = 3
@@ -200,6 +201,9 @@ class PhysicalAgent:
         else:
             return False
 
+    def kill(self, cell):
+        return self.layer.remove(cell)
+
     def link(self, cell1, cell2, **kwargs):
         self.__links.set(cell1, cell2, kwargs)
 
@@ -213,6 +217,23 @@ class PhysicalAgent:
         :return: groups of cells
         '''
         return self.__links.get_groups()
+
+    def get_nearby(self, cell, direction=None):
+        '''
+
+        :param cell:
+        :param direction:
+        :return: None, cell or list of cells
+        '''
+        if direction is not None:
+            return self.layer.get_cell(self.layer.position(cell, direction))
+        else:
+            cells = []
+            for d in Direction.ANY:
+                c = self.layer.get_cell(self.layer.position(cell, d))
+                if c is not None:
+                    cells.append(c)
+            return cells
 
     def get_group(self, cell) -> set:
         '''
@@ -228,7 +249,7 @@ class PhysicalAgent:
         pass
 
     def move_simple(self, cell, direction):
-        self.layer.move_in_direction(cell, direction)
+        return self.layer.move_in_direction(cell, direction)
 
     def move_linked(self, cell, direction):
         self.layer.move_multiple_in_direction(self.get_group(cell), direction)
@@ -308,4 +329,4 @@ class World:
                 color = cell.color
             else:
                 color = (64, 64, 127 + 128 * cell_group_no // cnt)
-            yield point[0], self.height - point[1], color
+            yield point[0], self.height - 1 - point[1], color
