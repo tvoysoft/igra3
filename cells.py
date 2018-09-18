@@ -25,9 +25,9 @@ class Cell:
     def next_move(self):
         pass
 
-
     def destroy(self):
         self.layer_agent.kill(self)
+
 
 class PhysicalCell(Cell):
     def __init__(self, layer_agent, name=None):
@@ -36,6 +36,10 @@ class PhysicalCell(Cell):
 
     def get_my_group(self):
         return self.layer_agent.get_group(self)
+
+    @property
+    def position(self):
+        return self.layer_agent.position(self)
 
 
 class SimplePhysicalCell(PhysicalCell):
@@ -82,13 +86,13 @@ class SimplePhysicalCell2(PhysicalCell):
         return self.directions[self.cur_dir_no]
 
     def clone(self, direction, is_linked):
-        '''
+        """
 
         :param direction:
         :param is_linked:
         :return:
         :rtype: SimplePhysicalCell2
-        '''
+        """
         if SimplePhysicalCell2.TOTAL_CLONES_COUNT >= SimplePhysicalCell2.MAX_TOTAL_CLONES:
             return None
         new_name = self.name + '_' + str(self.__clones_count)

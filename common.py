@@ -101,9 +101,9 @@ class TwoWayLinkSet:
         return self.__groups_cache_2.get(key, None)
 
     def get_groups(self) -> tuple:
-        '''
-        :return: list of keys
-        '''
+        """
+        :return: tuple of sets with keys
+        """
         if not self.__links_updated:
             return self.__groups_cache
         self.__groups_cache = tuple()
@@ -141,6 +141,11 @@ class TwoWayLinkSet:
         self.__groups_cache = tuple(groups)
         self.__links_updated = False
         return self.__groups_cache
+
+    def remove_all(self, key):
+        for linked in self.__links.get(key, {}).keys():
+            self.remove(key, linked)
+
 
 
 class TwoWayLinkSetTest(unittest.TestCase):

@@ -3,23 +3,32 @@ import colorsys
 
 Point = tuple
 
+
 class Direction:
-    MAX = 8
-    UP_LEFT = LEFT_UP = 1
-    UP = 2
-    UP_RIGHT = RIGHT_UP = 3
+    MAX = 9
+    UP_LEFT = LEFT_UP = 7
+    UP = 8
+    UP_RIGHT = RIGHT_UP = 9
     LEFT = 4
-    RIGHT = 5
-    DOWN_LEFT = LEFT_DOWN = 6
-    DOWN = 7
-    DOWN_RIGHT = RIGHT_DOWN = 8
+    RIGHT = 6
+    DOWN_LEFT = LEFT_DOWN = 1
+    DOWN = 2
+    DOWN_RIGHT = RIGHT_DOWN = 3
 
     NO = 0
+
 
     HORIZONTAL = (LEFT, RIGHT)
     VERTICAL = (UP, DOWN)
     DIAGONAL = (LEFT_UP, RIGHT_UP, LEFT_DOWN, RIGHT_DOWN)
-    ANY = tuple(range(1, 9))
+    ANY = HORIZONTAL + VERTICAL + DIAGONAL
+
+    __UP_CW = (
+        UP, UP_RIGHT, RIGHT, DOWN_RIGHT,
+        DOWN, DOWN_LEFT, LEFT, UP_LEFT
+    )
+
+    __UP_CCW = __UP_CW[::-1]
 
     _ALL_UP = (LEFT_UP, UP, RIGHT_UP)
     _ALL_DOWN = (LEFT_DOWN, DOWN, RIGHT_DOWN)
@@ -49,17 +58,48 @@ class Direction:
             x += 1
         return x, y
 
-def change_brigness(rgb, brightness):  # TODO: very slow, make faster
-    '''
+    @classmethod
+    def turn(cls, direction: int, cw: bool = True, t=1):
+        if direction in Direction.ANY and t > 0:
+            if cw:
+                circ = Direction.__UP_CW
+            else:
+                circ = Direction.__UP_CCW
+            new_index = circ.index(direction) + t
+            if new_index >= 8:
+                new_index = new_index % 8
+            return circ[new_index]
+        else:
+            return direction
+
+    @classmethod
+    def near(cls, direction: int) -> tuple:
+        return (
+            Direction.turn(direction, False),
+            Direction.turn(direction, True)
+        )
+
+def change_brigness(rgb: tuple, brightness, relatively=False):  # TODO: very slow, make faster
+    """
 
     :param rgb: tuple 0..255
     :param brightness: 0..100
+    :param relatively:
     :return: tuple 0..255
-    '''
-    rgb01 = rgb[0] / 255, rgb[1] / 255, rgb[2] / 255
-    hsv = colorsys.rgb_to_hsv(*rgb01)
-    new_rgb = colorsys.hsv_to_rgb(hsv[0], hsv[1], 0.01 * brightness)
-    return new_rgb[0] * 255, new_rgb[1] * 255, new_rgb[2] * 255
+    """
+
+    k = 0.00392156862745098  # 1/255
+
+    new_rgb = (rgb[i] * k for i in range(3))
+    hsv = colorsys.rgb_to_hsv(*new_rgb)
+
+    b = 0.01 * brightness
+    if relatively:
+        b = hsv[2] * b
+    new_rgb = colorsys.hsv_to_rgb(hsv[0], hsv[1], b)
+    result = tuple(int(new_rgb[i] * 255) for i in range(3))
+    return result
+
 
 class Layer:
     def __init__(self, world, width, height, concatenated):
@@ -182,27 +222,30 @@ class PhysicalLayer(Layer):
 
 
 class PhysicalAgent:
-
     def __init__(self, layer: PhysicalLayer):
-        self.layer = layer
+        self.__layer = layer
         self.__links = TwoWayLinkSet()
         self.move_impulses = []
 
+    def position(self, cell, direction=Direction.NO) -> Point:
+        return self.__layer.position(cell, direction)
+
     def add(self, cell, position: Point, direction=Direction.NO):
-        return self.layer.add(cell, Direction.apply(position, direction))
+        return self.__layer.add(cell, Direction.apply(position, direction))
 
     def add_relative(self, cell, base_cell, direction):
-        return self.add(cell, self.layer.position(base_cell), direction)
+        return self.add(cell, self.__layer.position(base_cell), direction)
 
     def add_linked(self, cell_to_add, base_cell, direction):
-        if self.add(cell_to_add, self.layer.position(base_cell), direction):
+        if self.add(cell_to_add, self.__layer.position(base_cell), direction):
             self.link(base_cell, cell_to_add)
             return True
         else:
             return False
 
     def kill(self, cell):
-        return self.layer.remove(cell)
+        self.__links.remove_all(cell)
+        return self.__layer.remove(cell)
 
     def link(self, cell1, cell2, **kwargs):
         self.__links.set(cell1, cell2, kwargs)
@@ -212,47 +255,50 @@ class PhysicalAgent:
 
     @property
     def all_groups(self) -> tuple:
-        '''
+        """
 
         :return: groups of cells
-        '''
+        """
         return self.__links.get_groups()
 
-    def get_nearby(self, cell, direction=None):
-        '''
+    def get_nearby(self, cell, directions=Direction.ANY):
+        """
+            Returns neighboring cells (or cell)
 
         :param cell:
-        :param direction:
+        :param directions: single direction or list of directions
         :return: None, cell or list of cells
-        '''
-        if direction is not None:
-            return self.layer.get_cell(self.layer.position(cell, direction))
+        """
+        if directions in Direction.ANY:
+            return self.__layer.get_cell(self.__layer.position(cell, directions))
         else:
             cells = []
-            for d in Direction.ANY:
-                c = self.layer.get_cell(self.layer.position(cell, d))
+            if directions is None:
+                directions = Direction.ANY
+            for d in directions:
+                c = self.__layer.get_cell(self.__layer.position(cell, d))
                 if c is not None:
                     cells.append(c)
             return cells
 
     def get_group(self, cell) -> set:
-        '''
+        """
         :return: cell's group (list with this cell and all linked)
-        '''
+        """
         group = self.__links.get_single_group(cell)
         if group is not None:
             return group
         else:
             return {cell}
 
-    def get_linked(self, cell) ->list:
+    def get_linked(self, cell) -> list:
         pass
 
     def move_simple(self, cell, direction):
-        return self.layer.move_in_direction(cell, direction)
+        return self.__layer.move_in_direction(cell, direction)
 
     def move_linked(self, cell, direction):
-        self.layer.move_multiple_in_direction(self.get_group(cell), direction)
+        self.__layer.move_multiple_in_direction(self.get_group(cell), direction)
 
     def _new_cycle(self):
         self.move_impulses.clear()
@@ -260,10 +306,6 @@ class PhysicalAgent:
     def impulse(self, cell, direction, power):
         """ Cell wants to move in some direction with some power """
         self.move_impulses.append((cell, direction, power))
-
-
-
-
 
 
 class World:
@@ -285,7 +327,6 @@ class World:
 
     def add_physical_cell(self, cell, point):
         return self.physical_layer.agent.add(cell, point)
-
 
     def next_move(self):
         """
