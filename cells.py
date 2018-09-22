@@ -12,6 +12,10 @@ class Cell:
         self.layer_agent = layer_agent  # type: worldpack.PhysicalAgent
         self.ag = layer_agent
 
+        self.alive = True
+        self.killer = None
+
+
     @property
     def id(self):
         return self.__id
@@ -25,8 +29,14 @@ class Cell:
     def next_move(self):
         pass
 
-    def destroy(self):
-        self.layer_agent.kill(self)
+    def destroy(self, sender=None, la_call=False):
+        self.__mark_as_dead(sender)
+        if not la_call:
+            self.layer_agent.kill(self, self)
+
+    def __mark_as_dead(self, reason):
+        self.alive = False
+        self.death_reason = reason
 
 
 class PhysicalCell(Cell):

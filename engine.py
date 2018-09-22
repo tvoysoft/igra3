@@ -18,12 +18,16 @@ class Engine:
         self.main_surface = pg.Surface(size_px)
         self.cell_surface = pg.Surface((cell_size_px, cell_size_px))
 
-    def loop(self, move_fnc=None, cells_iter=None, max_turns=None):
+    def loop(self, move_fnc=None, cells_iter=None, check_end_fnc=None, max_turns=None):
         # Start world
         loop_no = 0
         clock = pg.time.Clock()
         while True:
             clock.tick(self.fps)
+
+            if check_end_fnc is not None:
+                if check_end_fnc():
+                    return
 
             for event in pg.event.get():
                 if event.type == pg.QUIT:
