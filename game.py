@@ -16,12 +16,25 @@ class BaseGame:
             move_fnc = self.world.next_move
         if cells_iter is None:
             cells_iter = self.world.groups_iter
-        self.engine.loop(move_fnc=move_fnc, cells_iter=cells_iter)
+        self.engine.loop(move_fnc=move_fnc, cells_iter=cells_iter,
+                         check_end_fnc=self.check_end)
+        self.results()
         # for g in world.physical_layer.agent.all_groups:
         #     print(len(g), ','.join([str(c.id) for c in g]))
 
     def create_cells(self):
         raise NotImplementedError
+
+    def check_end(self) -> bool:
+        """
+        Check if game ends
+        :return:
+        """
+        return False
+
+    def results(self):
+        pass
+
 
 
 class DebugGame(BaseGame):

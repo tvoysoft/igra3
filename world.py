@@ -243,7 +243,9 @@ class PhysicalAgent:
         else:
             return False
 
-    def kill(self, cell):
+    def kill(self, cell, sender=None):
+        if cell != sender:
+            cell.destroy(sender=sender, la_call=True)
         self.__links.remove_all(cell)
         return self.__layer.remove(cell)
 
