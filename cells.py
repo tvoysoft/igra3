@@ -34,9 +34,9 @@ class Cell:
         if not la_call:
             self.layer_agent.kill(self, self)
 
-    def __mark_as_dead(self, reason):
+    def __mark_as_dead(self, destroyer):
         self.alive = False
-        self.death_reason = reason
+        self.destroyer = destroyer
 
 
 class PhysicalCell(Cell):

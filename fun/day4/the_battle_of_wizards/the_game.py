@@ -112,8 +112,15 @@ class WizardGame(game.BaseGame):
             if wizard.alive:
                 print('{0} is alive'.format(wizard.name))
             else:
-                print('{0} is killed by {1}\'s fireball'.
-                      format(wizard.name, wizard.death_reason.name))
+                res = None
+                try:
+                    res = wizard.destroyer.wizard.name, wizard.destroyer.name,
+                except:
+                    pass
+                if res is not None:
+                    print('{0} is killed by {1}\'s {2}'.format(wizard.name, *res))
+                else:
+                    print('{0} is dead'.format(wizard.name))
 
 class Wizard(PhysicalCell):
     def __init__(self, layer_agent, name=None, color=None, fireball_color=None, move_speed=5, fireball_rate=25):
@@ -121,7 +128,6 @@ class Wizard(PhysicalCell):
         self.speed = move_speed
         self.fireball_rate = fireball_rate
         self.fireball_direction = D.NO
-        self.killed_by = None
 
 
         if color is not None:
@@ -179,11 +185,12 @@ class Wizard(PhysicalCell):
 
 
 class Fireball(PhysicalCell):
-    def __init__(self, layer_agent, direction=D.NO, color=BaseColors.YELLOW, wizard=None, lifetime=None):
-        super().__init__(layer_agent, 'Fireball')
+    def __init__(self, layer_agent, direction=D.NO, color=BaseColors.YELLOW, wizard=None, lifetime=None, moving=True,
+                 name='Fireball'):
+        super().__init__(layer_agent, name=name)
         self.lifetime = lifetime
         self.color = color
-        self.moving = True
+        self.moving = moving
         self.direction = direction
         self.burn_timer = 0
         self.wizard = wizard
@@ -207,7 +214,7 @@ class Fireball(PhysicalCell):
         cells = self.layer_agent.get_nearby(self)
         for cell in cells:  # type: PhysicalCell
             if cell != self.wizard:
-                cell.destroy(sender=self.wizard)
+                cell.destroy(sender=self)
         self.burn()
 
     def blow2(self):
@@ -227,12 +234,9 @@ class Fireball(PhysicalCell):
             if cell is not None:
                 if cell != self.wizard:
                     pos = cell.position
-                    cell.destroy(sender=self.wizard)
-                    flame = Fireball(self.layer_agent)
+                    cell.destroy(sender=self)
+                    flame = Fireball(self.layer_agent, color=BaseColors.RED, moving=False, name='flame')
                     self.layer_agent.add(flame, pos)
-                    flame.moving = False
-                    flame.color = BaseColors.RED
-                    flame.burn()
 
         self.destroy()
 
@@ -256,4 +260,4 @@ class Sky(PhysicalCell):
 
 
 if __name__ == '__main__':
-    WizardGame(width=60, height=28, cell_size_px=10, fps=100).start()
+    WizardGame(width=60, height=28, cell_size_px=10, fps=500).start()

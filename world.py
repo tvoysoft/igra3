@@ -148,10 +148,10 @@ class PhysicalLayer(Layer):
         else:
             return self.__point_to_cell.get(self.norm(Direction.apply(position, direction)), None)
 
-    def is_point_occupied(self, point):
+    def is_point_occupied(self, point) -> bool:
         return self.norm(point) in self.__point_to_cell
 
-    def add(self, cell, point):
+    def add(self, cell, point) -> bool:
         p = self.norm(point)
         if p in self.__point_to_cell or cell in self.__cell_to_point:
             return False
@@ -161,13 +161,13 @@ class PhysicalLayer(Layer):
             self.world.add_cell_callback(cell, self)
             return True
 
-    def position(self, cell, direction=None):
+    def position(self, cell, direction=None) -> Point:
         if direction is None:
             return self.__cell_to_point.get(cell, None)
         else:
             return self.norm(Direction.apply(self.__cell_to_point.get(cell, None), direction))
 
-    def move(self, cell, point):
+    def move(self, cell, point) -> bool:
         if point is None or cell is None:
             return False
         if not self.has_cell(cell):
@@ -185,10 +185,10 @@ class PhysicalLayer(Layer):
         del self.__point_to_cell[cur_point]
         return True
 
-    def move_in_direction(self, cell, direction):
+    def move_in_direction(self, cell, direction) -> bool:
         return self.move(cell, self.position(cell, direction))
 
-    def move_multiple_in_direction(self, cells, direction):
+    def move_multiple_in_direction(self, cells, direction) -> bool:
         overlapped = []
         for cell in cells:
             ov = self.get_cell(self.position(cell, direction))
@@ -211,7 +211,7 @@ class PhysicalLayer(Layer):
         else:
             return False
 
-    def remove(self, cell):
+    def remove(self, cell) -> bool:
         if self.has_cell(cell):
             point = self.__cell_to_point[cell]
             del self.__cell_to_point[cell]
@@ -230,20 +230,20 @@ class PhysicalAgent:
     def position(self, cell, direction=Direction.NO) -> Point:
         return self.__layer.position(cell, direction)
 
-    def add(self, cell, position: Point, direction=Direction.NO):
+    def add(self, cell, position: Point, direction=Direction.NO) -> bool:
         return self.__layer.add(cell, Direction.apply(position, direction))
 
-    def add_relative(self, cell, base_cell, direction):
+    def add_relative(self, cell, base_cell, direction) -> bool:
         return self.add(cell, self.__layer.position(base_cell), direction)
 
-    def add_linked(self, cell_to_add, base_cell, direction):
+    def add_linked(self, cell_to_add, base_cell, direction) -> bool:
         if self.add(cell_to_add, self.__layer.position(base_cell), direction):
             self.link(base_cell, cell_to_add)
             return True
         else:
             return False
 
-    def kill(self, cell, sender=None):
+    def kill(self, cell, sender=None) -> bool:
         if cell != sender:
             cell.destroy(sender=sender, la_call=True)
         self.__links.remove_all(cell)
@@ -252,7 +252,13 @@ class PhysicalAgent:
     def link(self, cell1, cell2, **kwargs):
         self.__links.set(cell1, cell2, kwargs)
 
-    def unlink(self, cell1, cell2):
+    def unlink(self, cell1, cell2) -> object:
+        '''
+
+        :param cell1:
+        :param cell2:
+        :return: Link params
+        '''
         return self.__links.remove(cell1, cell2, True)
 
     @property
@@ -327,7 +333,7 @@ class World:
     def add_cell_callback(self, cell, layer):
         self.layer_cells[layer].append(cell)
 
-    def add_physical_cell(self, cell, point):
+    def add_physical_cell(self, cell, point) -> bool:
         return self.physical_layer.agent.add(cell, point)
 
     def next_move(self):
